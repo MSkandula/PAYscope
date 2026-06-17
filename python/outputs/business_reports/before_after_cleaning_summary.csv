@@ -1,0 +1,7 @@
+table_name,total_rows,raw_issue_count,valid_rows,invalid_rows,valid_rate_pct,invalid_rate_pct
+alerts,9956,365,6675,3281,67.04,32.96
+chargebacks,1851,618,883,968,47.7,52.3
+customers,10000,552,9446,554,94.46,5.54
+devices,15000,781,13426,1574,89.51,10.49
+merchants,1200,241,1001,199,83.42,16.58
+transactions,100000,1212,69713,30287,69.71,30.29
