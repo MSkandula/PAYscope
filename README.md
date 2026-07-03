@@ -193,7 +193,4 @@ psql -d payscope -f sql/run_marts.sql
 
 ## Author
 
-**Mahesh Sai Kandula** — MSc Data Science, Macquarie University (Sydney).
-Open to Data Analyst, Analytics Engineer, and Data Engineer roles.
-- LinkedIn: https://www.linkedin.com/in/mahesh-kandula-b6393622a/
-- GitHub: https://github.com/MSkandula
+**Mahesh Sai Kandula** — Master of Data Science, Macquarie University · [LinkedIn](https://www.linkedin.com/in/mahesh-kandula-b6393622a/) · [GitHub](https://github.com/MSkandula)
