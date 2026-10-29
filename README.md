@@ -19,12 +19,6 @@ An end-to-end digital payments analytics and risk-monitoring platform built with
 | **Merchant Risk** | Which merchants are risky? Failure vs chargeback scatter, segmented by behaviour-based risk tier. |
 | **Chargeback Analysis** | Where do disputes come from and how do they resolve? Breakdown by reason, outcome, and weekly trend. |
 
-<!-- 
-![Transaction Monitoring](docs/img/transaction_monitoring.png)
-![Merchant Risk](docs/img/merchant_risk.png)
-![Chargeback Analysis](docs/img/chargeback_analysis.png)
--->
-
 ---
 
 ## Why this project
@@ -149,45 +143,106 @@ payscope/
 ├── sql/
 │   ├── ddl/          # schema + table definitions
 │   ├── seed/         # synthetic data generation
+│   ├── issues/       # controlled defect injection (the "answer key")
 │   ├── marts/        # business mart definitions
 │   ├── qa/           # raw / clean / mart QA checks
 │   └── run_marts.sql # build all marts in order
 ├── python/
-│   ├── config/       # db connection
+│   ├── config/       # db connection (reads .env)
 │   ├── extraction/   # raw → CSV
 │   ├── dq/           # data-quality checks
-│   ├── cleaning/     # validation + cleaning
+│   ├── cleaning/     # validation + cleaning (6 modules)
 │   ├── loading/      # clean → PostgreSQL
-│   ├── reporting/    # before/after summary
-│   └── outputs/      # generated CSVs
-├── tableau/          # packaged workbook(s)
-├── docs/             # architecture, glossary, data dictionary
-└── README.md
+│   └── reporting/    # before/after summary
+├── docs/             # documentation, findings, and images/ (screenshots + charts)
+├── run_pipeline.sh   # rebuild the whole warehouse in dependency order
+├── .env.example      # database settings template (copy to .env)
+└── requirements.txt
 ```
+
+Generated CSVs (`python/outputs/`) are not committed; the pipeline regenerates them. The Tableau
+workbook is not stored here because it embeds a database connection; the dashboards are shown above.
 
 ---
 
 ## How to run
 
 ```bash
-# 1. Create schemas and raw tables, seed synthetic data, inject DQ issues
-psql -d payscope -f sql/ddl/01_create_schemas.sql
-psql -d payscope -f sql/ddl/02_raw_tables.sql
-# ... seed + inject scripts
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env          # then fill in DB_USER and DB_PASSWORD (never commit .env)
+createdb payscope             # a PostgreSQL database named in DB_NAME
 
-# 2. Extract → check → clean → load (Python)
-python -m python.extraction.extract_raw
-python -m python.dq.dq_checks
-python -m python.cleaning.clean_transactions   # + other clean_*.py
-python -m python.loading.load_clean
-
-# 3. Build marts + QA
-psql -d payscope -f sql/run_marts.sql
-
-# 4. Open the Tableau workbook in /tableau and connect to the mart schema
+./run_pipeline.sh             # schemas, seed, inject defects, profile, clean, load, build marts
 ```
 
-*Database connection is configured via a `.env` file (`DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT`, `DB_NAME`).*
+Or run the stages by hand: `psql -d payscope -f sql/ddl/01_create_schemas.sql` (and the other
+`ddl`, `seed` and `issues` scripts), then `python -m python.extraction.extract_raw`,
+`python -m python.dq.dq_checks`, the `python.cleaning.clean_*` modules,
+`python -m python.loading.load_clean`, and finally `psql -d payscope -f sql/run_marts.sql`
+from the repository root. Then point Tableau at the `mart` schema.
+
+---
+
+## Proof of work: verified against the live database
+
+Every figure below was queried from the running PostgreSQL warehouse (2026-10-29), not copied from
+a note. The rendered terminal images are the real text output of those queries.
+
+**What exists in each layer**
+
+![Row counts in the raw, clean and mart layers](docs/images/proof/live_layer_inventory.png)
+
+**Headline results from the validated data**
+
+![Headline results](docs/images/proof/live_headline_results.png)
+
+**Data quality: how much survives cleaning, and why**
+
+![Valid records by table](docs/images/findings/valid_rate_by_table.png)
+
+![Why 30% of transactions are invalid](docs/images/findings/validity_cascade.png)
+
+Records are flagged, never deleted. Most invalid transactions are excluded because the customer,
+merchant or device they point at was itself flagged, not because the payment itself is wrong.
+That is the main engineering finding in the [technical report](docs/TECHNICAL_REPORT.md).
+
+**Merchant risk segmentation from behaviour, not the source label**
+
+![Merchant segments](docs/images/findings/merchant_segments.png)
+
+**The raw layer, and the defects injected into it**
+
+The raw QA script profiles about 4,000 injected defects (broken keys, future dates, bad codes):
+
+![Raw QA checks in VS Code](docs/images/proof/raw_qa_checks_vscode.png)
+
+| Raw data | Injected-defect checks |
+|---|---|
+| ![Raw transactions](docs/images/proof/raw_transactions.png) | ![Transaction issues](docs/images/proof/issues_transactions.png) |
+| ![Raw chargebacks](docs/images/proof/raw_chargebacks.png) | ![Chargeback issues](docs/images/proof/issues_chargebacks.png) |
+
+More in [docs/images/proof/](docs/images/proof/) (customers, merchants, devices and alerts).
+
+**Known limitations, stated up front:** the data is synthetic; the clean layer's column types are
+inferred by pandas rather than enforced (a documented finding); and the validity rule is binary.
+All are written up, with fixes, in the [technical report](docs/TECHNICAL_REPORT.md) and the
+[upgrade roadmap](docs/UPGRADE_ROADMAP.md).
+
+---
+
+## Documentation
+
+| Document | What's in it |
+|---|---|
+| [Project Documentation](docs/PROJECT_DOCUMENTATION.md) | Full end-to-end reference: architecture, every pipeline layer, data dictionary, business glossary, run instructions |
+| [Technical Report](docs/TECHNICAL_REPORT.md) | Method, verified results, and nine findings from auditing the pipeline against its own answer key |
+| [Findings](docs/findings.md) | What the pipeline produces and what can (and cannot) be concluded from synthetic data |
+| [Risk Rules](docs/payscope_Riskrules.md) | The explainable thresholds behind merchant segments, the customer flag and rule hits |
+| [Cleaning Logic](docs/payscope_cleaning_logic.md) | Standardise, validate and flag rules per table, with the allowed value sets |
+| [Upgrade Roadmap](docs/UPGRADE_ROADMAP.md) | Prioritised improvements with code, effort estimates and rationale, plus current status |
+
+A note on the technical report: because every data-quality defect in this project is injected deliberately, the detection layer can be graded against known truth. Doing that surfaced real defects in the pipeline: a validity cascade that excludes about 29,700 sound transactions for upstream cosmetic issues, risk thresholds sitting at the population median, and a type contract silently discarded at load. They are documented rather than quietly fixed, because finding them is the part of the work worth showing.
 
 ---
 
