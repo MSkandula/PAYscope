@@ -1,0 +1,24 @@
+# Secrets — never commit
+.env
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# macOS
+.DS_Store
+
+# Generated pipeline output (regenerable — the pipeline is the source of truth)
+python/outputs/
+
+# Notebook checkpoints / R history
+.ipynb_checkpoints/
+.Rhistory
+
+# Stray local conda env that sits inside the screenshots folder
+Screenshots of PAYscope/.conda/
+
+# Local scratch
+CREATE DATABASE*.sql
