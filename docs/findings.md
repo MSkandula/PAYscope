@@ -28,10 +28,10 @@ dashboards.
 |---|---|---|---|
 | customers | 10,000 | 9,446 | 94.5% |
 | merchants | 1,200 | 1,001 | 83.4% |
-| devices | 15,000 | ~13,425 | 89.5% |
+| devices | 15,000 | 13,426 | 89.5% |
 | transactions | 100,000 | 69,713 | 69.7% |
 | chargebacks | 1,851 | 883 | 47.7% |
-| alerts | 9,956 | 6,670 | 67.0% |
+| alerts | 9,956 | 6,675 | 67.0% |
 
 Validity is tracked per row using two audit columns — `is_valid_record` (a boolean
 gate) and `dq_issue_count` (how many distinct checks a row failed) — plus a
@@ -104,7 +104,7 @@ each without touching raw tables:
 All rates (approval, failure, chargeback, cross-border) are computed with an
 **aggregate-before-join** pattern and `SUM(...)/SUM(...)` calculations rather than
 averaging pre-computed percentages — this avoids both grain-mismatch double-counting
-and the "average of averages" error.
+and the "average of averages" error. (One exception: the dashboard's Avg Chargeback KPI averages the mart's per-row averages and shows $130.95; the true average is $114,447.09 / 883 = $129.61. Tracked as P0-6 in `UPGRADE_ROADMAP.md`.)
 
 ---
 
